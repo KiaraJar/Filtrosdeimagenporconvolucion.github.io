@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="es" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Filtros de Convolución</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&amp;family=Sora:wght@300;400;600;700&amp;display=swap" rel="stylesheet">
+  <!doctype html>
+  <html lang="es" class="h-full">
+   <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtros de Convolución</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+    <script src="/_sdk/element_sdk.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&amp;family=Sora:wght@300;400;600;700&amp;display=swap" rel="stylesheet">
+    <style>
+      body { font-family: 'Sora', sans-serif; }
+      .mono { font-family: 'JetBrains Mono', monospace; }
+      .kernel-cell {
+        width: 42px; height: 42px;
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid rgba(255,255,255,0.15);
+        font-size: 12px;
+        transition: all 0.2s;
+      }
+      .kernel-cell:hover { background: rgba(255,255,255,0.1); }
+      .filter-card {
+        transition: transform 0.3s, box-shadow 0.3s;
+      }
+      .filter-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+      canvas { image-rendering: pixelated; border-radius: 8px; }
+      @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .fade-up { animation: fadeUp 0.6s ease forwards; opacity: 0; }
+      .fade-up:nth-child(1) { animation-delay: 0.1s; }
+      .fade-up:nth-child(2) { animation-delay: 0.2s; }
+      .fade-up:nth-child(3) { animation-delay: 0.3s; }
+      .fade-up:nth-child(4) { animation-delay: 0.4s; }
+      .fade-up:nth-child(5) { animation-delay: 0.5s; }
+      .fade-up:nth-child(6) { animation-delay: 0.6s; }
+    </style>
+    <style>body { box-sizing: border-box; }</style>
+    <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+   </head>
+   <body class="h-full overflow-auto bg-slate-950 text-slate-100">
+    <div class="w-full min-h-full" id="app"><!-- Hero -->
+     <header class="w-full px-6 py-16 text-center relative overflow-hidden">
+      <div class="absolute inset-0 bg-gradient-to-br from-indigo-950 via-slate-950 to-emerald-950 opacity-80"></div>
+      <div class="relative z-10">
+       <h1 id="main-title" class="text-4xl md:text-5xl font-bold bg-gradient-to-r from-emerald-400 to-indigo-400 bg-clip-text text-transparent mb-4">Filtros por Convolución</h1>
+       <p class="text-slate-400 max-w-2xl mx-auto text-lg">Explora cómo los kernels de convolución transforman imágenes píxel a píxel. Selecciona un filtro para ver su efecto en tiempo real.</p>
+      </div>
+     </header><!-- How it works -->
+     <section class="w-full max-w-5xl mx-auto px-6 mb-12">
+      <h2 class="text-2xl font-semibold text-emerald-400 mb-4">¿Cómo funciona?</h2>
+      <div class="bg-slate-900 rounded-xl p-6 border border-slate-800">
+       <p class="text-slate-300 leading-relaxed mb-4">La <strong class="text-white">convolución</strong> es una operación matemática que recorre cada píxel de una imagen y lo reemplaza por una combinación ponderada de sus vecinos. El patrón de pesos se llama <strong class="text-white">kernel</strong> (o máscara).</p>
+       <div class="flex flex-wrap gap-4 items-center justify-center text-sm text-slate-400 mono"><span class="bg-slate-800 px-3 py-2 rounded">Píxel resultado = Σ (vecino × peso del kernel)</span>
+       </div>
+      </div>
+     </section><!-- Demo Area -->
+     <section class="w-full max-w-6xl mx-auto px-6 mb-16">
+      <h2 class="text-2xl font-semibold text-emerald-400 mb-6">Demo Interactiva</h2><!-- Filter selector -->
+      <div class="flex flex-wrap gap-3 mb-8" id="filter-buttons"></div>
+      <div class="grid md:grid-cols-2 gap-8 items-start"><!-- Original -->
+       <div class="text-center">
+        <p class="text-slate-400 mb-3 text-sm uppercase tracking-wider">Original</p>
+        <canvas id="canvas-original" width="300" height="300" class="w-full max-w-[300px] mx-auto bg-slate-800"></canvas>
+        <div class="mt-4 flex gap-3 justify-center flex-wrap"><button onclick="setImage('gradient')" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-sm transition">Gradiente</button> <button onclick="setImage('checker')" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-sm transition">Tablero</button> <button onclick="setImage('shapes')" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-sm transition">Formas</button> <button onclick="setImage('noise')" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-sm transition">Ruido</button> <label class="px-3 py-1.5 rounded bg-indigo-700 hover:bg-indigo-600 text-sm transition cursor-pointer">Cargar Imagen<input type="file" id="image-upload" accept="image/*" class="hidden" onchange="loadImageFile(event)"></label>
+        </div>
+        <div class="mt-4 text-center w-full">
+          <label for="intensity-slider" class="text-xs text-slate-400 uppercase tracking-wider">Intensidad</label>
+          <div class="flex items-center justify-center gap-3 mt-2">
+            <input id="intensity-slider" type="range" min="0" max="100" value="100" oninput="setIntensity(this.value)" class="h-2 w-48">
+            <span id="intensity-value" class="text-sm text-slate-300">100%</span>
+          </div>
+        </div>
+       </div><!-- Filtered -->
+       <div class="text-center">
+        <p class="text-slate-400 mb-3 text-sm uppercase tracking-wider">Filtrado</p>
+        <canvas id="canvas-filtered" width="300" height="300" class="w-full max-w-[300px] mx-auto bg-slate-800"></canvas><!-- Kernel display -->
+        <div class="mt-4">
+         <p class="text-slate-500 text-xs mb-2 uppercase tracking-wider">Kernel activo</p>
+         <div id="kernel-display" class="inline-grid gap-0 mono text-emerald-300 bg-slate-900 rounded-lg p-2 border border-slate-700"></div>
+         <div class="mt-2 flex items-center justify-center gap-3">
+           <button id="kernel-edit-btn" onclick="toggleKernelEdit()" class="px-3 py-1 rounded bg-indigo-600 text-white text-sm">Editar</button>
+           <button id="kernel-apply-btn" onclick="applyKernelFromDisplay()" class="px-3 py-1 rounded bg-emerald-500 text-slate-900 text-sm hidden">Aplicar</button>
+           <button id="kernel-reset-btn" onclick="resetKernelFromDisplay()" class="px-3 py-1 rounded bg-slate-700 text-slate-200 text-sm hidden">Reset</button>
+           <label class="ml-2 text-xs text-slate-400"><input id="kernel-normalize" type="checkbox" class="mr-1"> Normalizar</label>
+         </div>
+        </div>
+       </div>
+      </div>
+     </section><!-- Filter Cards -->
+     <section class="w-full max-w-6xl mx-auto px-6 pb-20">
+      <h2 class="text-2xl font-semibold text-emerald-400 mb-6">Catálogo de Filtros</h2>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6" id="filter-cards"></div>
+     </section>
+    
+      </div>
+    <script>
+      const defaultConfig = {
+        page_title: 'Filtros por Convolución',
+        background_color: '#020617',
+        surface_color: '#0f172a',
+        text_color: '#e2e8f0',
+        primary_color: '#34d399',
+        secondary_color: '#818cf8',
+        font_family: 'Sora',
+        font_size: 16
+      };
+
+      const filters = [
+        { name: 'Identidad', desc: 'No modifica la imagen. El píxel central mantiene su valor.', kernel: [[0,0,0],[0,1,0],[0,0,0]], category: 'básico' },
+        { name: 'Box Blur', desc: 'Promedia los píxeles vecinos creando un suavizado uniforme.', kernel: [[1,1,1],[1,1,1],[1,1,1]], normalize: true, displayKernel: [["1/9","1/9","1/9"],["1/9","1/9","1/9"],["1/9","1/9","1/9"]], category: 'suavizado' },
+        { name: 'Gaussiano', desc: 'Suavizado que da más peso al centro, resultando más natural.', kernel: [[1,2,1],[2,4,2],[1,2,1]], normalize: true, category: 'suavizado' },
+        { name: 'Prewitt Horizontal', desc: 'Detecta bordes horizontales con el operador de Prewitt.', kernel: [[-1,0,1],[-1,0,1],[-1,0,1]], category: 'detección' },
+        { name: 'Prewitt Vertical', desc: 'Detecta bordes verticales con el operador de Prewitt.', kernel: [[1,1,1],[0,0,0],[-1,-1,-1]], category: 'detección' },
+        { name: 'Prewitt Bidireccional', desc: 'Detecta bordes en ambas direcciones con el operador de Prewitt combinado.', type: 'prewitt', previewKernel: [[-1,0,1],[-1,0,1],[-1,0,1]], category: 'detección' },
+        { name: 'Sharpen', desc: 'Realza bordes aumentando el contraste local.', kernel: [[0,-1,0],[-1,5,-1],[0,-1,0]], category: 'realce' },
+        { name: 'Bordes (Laplaciano)', desc: 'Detecta cambios bruscos de intensidad en todas direcciones.', kernel: [[0,-1,0],[-1,4,-1],[0,-1,0]], category: 'detección' },
+        { name: 'Sobel Horizontal', desc: 'Detecta bordes horizontales usando el gradiente vertical.', kernel: [[-1,0,1],[-2,0,2],[-1,0,1]], category: 'detección' },
+        { name: 'Sobel Vertical', desc: 'Detecta bordes verticales usando el gradiente horizontal.', kernel: [[-1,-2,-1],[0,0,0],[1,2,1]], category: 'detección' },
+        { name: 'Canny', desc: 'Filtro de detección de bordes inspirado en Canny con suavizado, gradiente y umbrales.', type: 'canny', previewKernel: [[1,2,1],[2,4,2],[1,2,1]], category: 'detección' },
+        { name: 'Emboss', desc: 'Crea un efecto de relieve simulando luz desde una esquina.', kernel: [[-2,-1,0],[-1,1,1],[0,1,2]], category: 'efecto' },
+        { name: 'Bordes Intenso', desc: 'Detección agresiva de bordes en todas las direcciones.', kernel: [[-1,-1,-1],[-1,8,-1],[-1,-1,-1]], category: 'detección' }
+      ];
+
+      let currentFilter = 0;
+      let currentImage = 'shapes';
+      let imageData = null;
+      let filterIntensity = 1; // 0..1
+      let kernelEdit = false;
+
+      function generateImage(type, w, h) {
+        const data = new Uint8ClampedArray(w * h * 4);
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            let r, g, b;
+            if (type === 'gradient') {
+              r = (x / w) * 255; g = (y / h) * 255; b = 128;
+            } else if (type === 'checker') {
+              const s = 30;
+              const c = ((Math.floor(x/s) + Math.floor(y/s)) % 2 === 0) ? 240 : 30;
+              r = g = b = c;
+            } else if (type === 'shapes') {
+              const cx = w/2, cy = h/2;
+              const d = Math.sqrt((x-cx)**2 + (y-cy)**2);
+              if (d < 60) { r = 255; g = 100; b = 80; }
+              else if (Math.abs(x - w*0.25) < 40 && Math.abs(y - h*0.3) < 40) { r = 80; g = 200; b = 255; }
+              else if (x > w*0.6 && x < w*0.85 && y > h*0.6 && y < h*0.85) { r = 100; g = 255; b = 150; }
+              else { r = g = b = 30 + Math.sin(x*0.05)*15 + Math.cos(y*0.05)*15; }
+            } else {
+              r = g = b = Math.random() * 255;
+            }
+            data[i] = r; data[i+1] = g; data[i+2] = b; data[i+3] = 255;
+          }
+        }
+        return new ImageData(data, w, h);
+      }
+
+      function applyConvolution(imgData, kernel, normalize) {
+        const w = imgData.width, h = imgData.height;
+        const src = imgData.data;
+        const out = new Uint8ClampedArray(src.length);
+        const ks = kernel.length, half = Math.floor(ks / 2);
+        let sum = 0;
+        if (normalize) { for (let ky=0; ky<ks; ky++) for (let kx=0; kx<ks; kx++) sum += kernel[ky][kx]; }
+        if (sum === 0) sum = 1;
+        const divisor = normalize ? sum : 1;
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            let r=0, g=0, b=0;
+            for (let ky=0; ky<ks; ky++) {
+              for (let kx=0; kx<ks; kx++) {
+                const py = Math.min(h-1, Math.max(0, y+ky-half));
+                const px = Math.min(w-1, Math.max(0, x+kx-half));
+                const si = (py*w+px)*4;
+                const weight = kernel[ky][kx];
+                r += src[si]*weight; g += src[si+1]*weight; b += src[si+2]*weight;
+              }
+            }
+            const di = (y*w+x)*4;
+            out[di] = Math.min(255, Math.max(0, r/divisor));
+            out[di+1] = Math.min(255, Math.max(0, g/divisor));
+            out[di+2] = Math.min(255, Math.max(0, b/divisor));
+            out[di+3] = 255;
+          }
+        }
+        return new ImageData(out, w, h);
+      }
+
+      // Convolución en espacio lineal (sRGB -> linear -> conv -> sRGB)
+      function srgbToLinear(v) {
+        v = v / 255;
+        if (v <= 0.04045) return v / 12.92;
+        return Math.pow((v + 0.055) / 1.055, 2.4);
+      }
+      function linearToSrgb(v) {
+        if (v <= 0.0031308) v = v * 12.92;
+        else v = 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+        return Math.min(1, Math.max(0, v)) * 255;
+      }
+
+      function applyConvolutionLinear(imgData, kernel, normalize) {
+        const w = imgData.width, h = imgData.height;
+        const src = imgData.data;
+        const out = new Uint8ClampedArray(src.length);
+        const ks = kernel.length, half = Math.floor(ks / 2);
+        let sum = 0;
+        if (normalize) { for (let ky=0; ky<ks; ky++) for (let kx=0; kx<ks; kx++) sum += kernel[ky][kx]; }
+        if (sum === 0) sum = 1;
+        const divisor = normalize ? sum : 1;
+
+        const lin = new Float32Array(w * h * 3);
+        for (let i = 0, j = 0; i < src.length; i += 4, j += 3) {
+          lin[j]   = srgbToLinear(src[i]);
+          lin[j+1] = srgbToLinear(src[i+1]);
+          lin[j+2] = srgbToLinear(src[i+2]);
+        }
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            let r=0, g=0, b=0;
+            for (let ky=0; ky<ks; ky++) {
+              for (let kx=0; kx<ks; kx++) {
+                const py = Math.min(h-1, Math.max(0, y+ky-half));
+                const px = Math.min(w-1, Math.max(0, x+kx-half));
+                const si = (py*w+px)*3;
+                const weight = kernel[ky][kx];
+                r += lin[si] * weight; g += lin[si+1] * weight; b += lin[si+2] * weight;
+              }
+            }
+            const di = (y*w+x)*4;
+            if (normalize) { r /= divisor; g /= divisor; b /= divisor; }
+            out[di]   = Math.round(linearToSrgb(r));
+            out[di+1] = Math.round(linearToSrgb(g));
+            out[di+2] = Math.round(linearToSrgb(b));
+            out[di+3] = 255;
+          }
+        }
+        return new ImageData(out, w, h);
+      }
+
+      function applyPrewitt(imgData) {
+        const w = imgData.width, h = imgData.height;
+        const src = imgData.data;
+        const out = new Uint8ClampedArray(src.length);
+        const kernelX = [[-1,0,1],[-1,0,1],[-1,0,1]];
+        const kernelY = [[-1,-1,-1],[0,0,0],[1,1,1]];
+        const half = 1;
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            let gx = 0, gy = 0;
+            for (let ky = 0; ky < 3; ky++) {
+              for (let kx = 0; kx < 3; kx++) {
+                const py = Math.min(h-1, Math.max(0, y + ky - half));
+                const px = Math.min(w-1, Math.max(0, x + kx - half));
+                const si = (py*w + px) * 4;
+                const lum = 0.299 * src[si] + 0.587 * src[si+1] + 0.114 * src[si+2];
+                gx += lum * kernelX[ky][kx];
+                gy += lum * kernelY[ky][kx];
+              }
+            }
+            const mag = Math.min(255, Math.hypot(gx, gy));
+            const di = (y*w + x) * 4;
+            out[di] = out[di+1] = out[di+2] = mag;
+            out[di+3] = 255;
+          }
+        }
+        return new ImageData(out, w, h);
+      }
+
+      function applyCanny(imgData) {
+        const w = imgData.width, h = imgData.height;
+        const src = imgData.data;
+        const size = w * h;
+        const gray = new Float32Array(size);
+        const blurred = new Float32Array(size);
+        const out = new Uint8ClampedArray(src.length);
+        const gauss = [[1,2,1],[2,4,2],[1,2,1]];
+        const sobelX = [[-1,0,1],[-2,0,2],[-1,0,1]];
+        const sobelY = [[-1,-2,-1],[0,0,0],[1,2,1]];
+        const half = 1;
+
+        for (let i = 0, j = 0; i < src.length; i += 4, j++) {
+          gray[j] = 0.299 * src[i] + 0.587 * src[i+1] + 0.114 * src[i+2];
+        }
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            let sum = 0;
+            for (let ky = 0; ky < 3; ky++) {
+              for (let kx = 0; kx < 3; kx++) {
+                const py = Math.min(h-1, Math.max(0, y + ky - half));
+                const px = Math.min(w-1, Math.max(0, x + kx - half));
+                sum += gray[py*w + px] * gauss[ky][kx];
+              }
+            }
+            blurred[y*w + x] = sum / 16;
+          }
+        }
+
+        const magnitude = new Float32Array(size);
+        const direction = new Float32Array(size);
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            let gx = 0, gy = 0;
+            for (let ky = 0; ky < 3; ky++) {
+              for (let kx = 0; kx < 3; kx++) {
+                const py = Math.min(h-1, Math.max(0, y + ky - half));
+                const px = Math.min(w-1, Math.max(0, x + kx - half));
+                const value = blurred[py*w + px];
+                gx += value * sobelX[ky][kx];
+                gy += value * sobelY[ky][kx];
+              }
+            }
+            const idx = y*w + x;
+            magnitude[idx] = Math.hypot(gx, gy);
+            direction[idx] = Math.atan2(gy, gx);
+          }
+        }
+
+        const suppressed = new Float32Array(size);
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            const idx = y*w + x;
+            const angle = direction[idx] * (180 / Math.PI);
+            const mag = magnitude[idx];
+            let q = 255, r = 255;
+            const angleNorm = (angle < 0 ? angle + 180 : angle);
+            if ((angleNorm >= 0 && angleNorm < 22.5) || (angleNorm >= 157.5 && angleNorm <= 180)) {
+              q = magnitude[idx + 1];
+              r = magnitude[idx - 1];
+            } else if (angleNorm >= 22.5 && angleNorm < 67.5) {
+              q = magnitude[idx - w + 1];
+              r = magnitude[idx + w - 1];
+            } else if (angleNorm >= 67.5 && angleNorm < 112.5) {
+              q = magnitude[idx - w];
+              r = magnitude[idx + w];
+            } else if (angleNorm >= 112.5 && angleNorm < 157.5) {
+              q = magnitude[idx - w - 1];
+              r = magnitude[idx + w + 1];
+            }
+            suppressed[idx] = mag >= q && mag >= r ? mag : 0;
+          }
+        }
+
+        const lowThreshold = 50;
+        const highThreshold = 120;
+        for (let i = 0; i < size; i++) {
+          const value = suppressed[i];
+          const edge = value >= highThreshold ? 255 : (value >= lowThreshold ? 180 : 0);
+          const pi = i * 4;
+          out[pi] = out[pi+1] = out[pi+2] = edge;
+          out[pi+3] = 255;
+        }
+        return new ImageData(out, w, h);
+      }
+
+      function applyFilter(imgData, filter) {
+        if (filter.type === 'prewitt') return applyPrewitt(imgData);
+        if (filter.type === 'canny') return applyCanny(imgData);
+        // Para que la diferencia entre Box Blur y Gaussiano sea visible,
+        // aplicamos la convolución en espacio lineal sólo al Gaussiano.
+        if (filter.name === 'Gaussiano') return applyConvolutionLinear(imgData, filter.kernel, filter.normalize);
+        return applyConvolution(imgData, filter.kernel, filter.normalize);
+      }
+
+      function render() {
+        const co = document.getElementById('canvas-original');
+        const cf = document.getElementById('canvas-filtered');
+        const ctxO = co.getContext('2d');
+        const ctxF = cf.getContext('2d');
+
+        // Si es imagen personalizada, mantener la cargada; sino, generar nueva
+        if (currentImage !== 'custom') {
+          imageData = generateImage(currentImage, 300, 300);
+        }
+        ctxO.putImageData(imageData, 0, 0);
+
+        const f = filters[currentFilter];
+        const filtered = applyFilter(imageData, f);
+        // Si la intensidad es menor a 1, mezclamos con la imagen original
+        if (filterIntensity < 0.999) {
+          const w = imageData.width, h = imageData.height;
+          const src = imageData.data;
+          const dst = filtered.data;
+          const out = new Uint8ClampedArray(src.length);
+          for (let i = 0; i < src.length; i += 4) {
+            out[i] = Math.round(src[i] * (1 - filterIntensity) + dst[i] * filterIntensity);
+            out[i+1] = Math.round(src[i+1] * (1 - filterIntensity) + dst[i+1] * filterIntensity);
+            out[i+2] = Math.round(src[i+2] * (1 - filterIntensity) + dst[i+2] * filterIntensity);
+            out[i+3] = 255;
+          }
+          ctxF.putImageData(new ImageData(out, w, h), 0, 0);
+        } else {
+          ctxF.putImageData(filtered, 0, 0);
+        }
+
+        // Kernel display
+        const kd = document.getElementById('kernel-display');
+        const kernels = f.kernels || [f.kernel || f.previewKernel];
+        const displayKernel = f.displayKernel || kernels[0] || [[0]];
+        kd.style.gridTemplateColumns = `repeat(${displayKernel.length}, 42px)`;
+        if (kernelEdit && displayKernel.length === 3) {
+          // render inputs inside kernel display
+          let html = '';
+          for (let y = 0; y < 3; y++) {
+            for (let x = 0; x < 3; x++) {
+              const v = (displayKernel[y] && typeof displayKernel[y][x] !== 'undefined') ? displayKernel[y][x] : 0;
+              html += `<input id="k-${y}-${x}" class="kernel-cell" style="width:42px;height:42px;padding:0;border:none;background:#0f172a;color:#8be5c1;text-align:center" type="number" step="1" value="${v}">`;
+            }
+          }
+          kd.innerHTML = html;
+          const n = document.getElementById('kernel-normalize');
+          if (n) n.checked = !!f.normalize;
+        } else {
+          kd.innerHTML = kernels.map(kernel => (f.displayKernel || kernel).flat().map(v => `<div class="kernel-cell">${v}</div>`).join('')).join('<div class="h-2"></div>')
+        }
+      }
+
+      function setImage(type) {
+        currentImage = type;
+        render();
+      }
+
+      function setIntensity(val) {
+        filterIntensity = Number(val) / 100;
+        const el = document.getElementById('intensity-value');
+        if (el) el.textContent = Math.round(filterIntensity * 100) + '%';
+        render();
+      }
+
+      function populateKernelEditor(kernel, normalize) {
+        try {
+          for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) {
+            const el = document.getElementById(`k-${y}-${x}`);
+            if (el) el.value = kernel[y] && typeof kernel[y][x] !== 'undefined' ? kernel[y][x] : 0;
+          }
+          const n = document.getElementById('kernel-normalize');
+          if (n) n.checked = !!normalize;
+        } catch (e) { /* ignore */ }
+      }
+
+      function readKernelFromEditor() {
+        const kernel = [[0,0,0],[0,0,0],[0,0,0]];
+        for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) {
+          const el = document.getElementById(`k-${y}-${x}`);
+          kernel[y][x] = el && el.value !== '' ? Number(el.value) : 0;
+        }
+        const normalize = !!document.getElementById('kernel-normalize') && document.getElementById('kernel-normalize').checked;
+        return { kernel, normalize };
+      }
+
+      function applyKernelFromEditor() {
+        const { kernel, normalize } = readKernelFromEditor();
+        let idx = filters.findIndex(f => f.name === 'Custom Kernel');
+        if (idx === -1) {
+          filters.push({ name: 'Custom Kernel', desc: 'Kernel 3x3 editable', kernel, normalize, category: 'custom', displayKernel: kernel.map(r => r.map(v => v)) });
+          idx = filters.length - 1;
+        } else {
+          filters[idx].kernel = kernel;
+          filters[idx].normalize = normalize;
+          filters[idx].displayKernel = kernel.map(r => r.map(v => v));
+        }
+        buildUI();
+        setFilter(idx);
+      }
+
+      function toggleKernelEdit() {
+        kernelEdit = !kernelEdit;
+        const applyBtn = document.getElementById('kernel-apply-btn');
+        const resetBtn = document.getElementById('kernel-reset-btn');
+        const editBtn = document.getElementById('kernel-edit-btn');
+        if (applyBtn) applyBtn.classList.toggle('hidden', !kernelEdit);
+        if (resetBtn) resetBtn.classList.toggle('hidden', !kernelEdit);
+        if (editBtn) editBtn.textContent = kernelEdit ? 'Cancelar' : 'Editar';
+        render();
+      }
+
+      function readKernelFromDisplay() {
+        const kernel = [[0,0,0],[0,0,0],[0,0,0]];
+        for (let y=0;y<3;y++) for (let x=0;x<3;x++) {
+          const el = document.getElementById(`k-${y}-${x}`);
+          kernel[y][x] = el && el.value !== '' ? Number(el.value) : 0;
+        }
+        const normalize = !!document.getElementById('kernel-normalize') && document.getElementById('kernel-normalize').checked;
+        return { kernel, normalize };
+      }
+
+      function applyKernelFromDisplay() {
+        const { kernel, normalize } = readKernelFromDisplay();
+        // apply to current filter if 3x3, else create/update Custom Kernel
+        const f = filters[currentFilter];
+        if (f && f.kernel && f.kernel.length === 3) {
+          f.kernel = kernel;
+          f.normalize = normalize;
+          f.displayKernel = kernel.map(r => r.map(v => v));
+        } else {
+          let idx = filters.findIndex(x => x.name === 'Custom Kernel');
+          if (idx === -1) {
+            filters.push({ name: 'Custom Kernel', desc: 'Kernel 3x3 editable', kernel, normalize, category: 'custom', displayKernel: kernel.map(r => r.map(v => v)) });
+            idx = filters.length - 1;
+          } else {
+            filters[idx].kernel = kernel;
+            filters[idx].normalize = normalize;
+            filters[idx].displayKernel = kernel.map(r => r.map(v => v));
+          }
+          setFilter(idx);
+        }
+        kernelEdit = false;
+        document.getElementById('kernel-apply-btn').classList.add('hidden');
+        document.getElementById('kernel-reset-btn').classList.add('hidden');
+        document.getElementById('kernel-edit-btn').textContent = 'Editar';
+        buildUI();
+        render();
+      }
+
+      function resetKernelFromDisplay() {
+        const f = filters[currentFilter] || { kernel: [[0,0,0],[0,1,0],[0,0,0]] };
+        populateKernelEditor(f.kernel || f.previewKernel || [[0,1,0],[0,0,0],[0,0,0]], f.normalize || false);
+      }
+
+      function resetKernelEditor() {
+        const identity = [[0,0,0],[0,1,0],[0,0,0]];
+        populateKernelEditor(identity, false);
+      }
+
+      function setFilter(idx) {
+        currentFilter = idx;
+        render();
+        document.querySelectorAll('#filter-buttons button').forEach((b, i) => {
+          b.className = i === idx
+            ? 'px-4 py-2 rounded-full text-sm font-medium bg-emerald-500 text-slate-950 transition'
+            : 'px-4 py-2 rounded-full text-sm font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+        });
+        const f = filters[idx];
+        const kernelForEditor = f.kernel || f.previewKernel || (f.kernels ? f.kernels[0] : [[0,1,0],[0,0,0],[0,0,0]]);
+        populateKernelEditor(kernelForEditor, f.normalize || false);
+      }
+
+      // Build UI
+      function buildUI() {
+        const btnContainer = document.getElementById('filter-buttons');
+        btnContainer.innerHTML = filters.map((f, i) =>
+          `<button onclick="setFilter(${i})" class="px-4 py-2 rounded-full text-sm font-medium ${i===0?'bg-emerald-500 text-slate-950':'bg-slate-800 text-slate-300 hover:bg-slate-700'} transition">${f.name}</button>`
+        ).join('');
+
+        const cardsContainer = document.getElementById('filter-cards');
+        cardsContainer.innerHTML = filters.map((f, i) => {
+          const displayKernel = f.displayKernel || f.previewKernel || f.kernel || (f.kernels ? f.kernels[0] : [[0]]);
+          return `
+          <div class="filter-card fade-up bg-slate-900 border border-slate-800 rounded-xl p-5 cursor-pointer" onclick="setFilter(${i})">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300">${f.category}</span>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-1">${f.name}</h3>
+            <p class="text-slate-400 text-sm mb-3">${f.desc}</p>
+            <div class="inline-grid gap-0 mono text-xs text-emerald-300/80" style="grid-template-columns:repeat(${displayKernel.length},32px)">
+              ${displayKernel.flat().map(v => `<div class="w-8 h-8 flex items-center justify-center border border-slate-700/50">${v}</div>`).join('')}
+            </div>
+          </div>
+        `;
+        }).join('');
+      }
+
+      function loadImageFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+      
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.getElementById('canvas-original');
+            const ctx = canvas.getContext('2d');
+            const w = 300, h = 300;
+          
+            canvas.width = w;
+            canvas.height = h;
+          
+            // Dibujar imagen escalada al centro
+            const scale = Math.min(w / img.width, h / img.height);
+            const x = (w - img.width * scale) / 2;
+            const y = (h - img.height * scale) / 2;
+            ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+          
+            // Obtener datos y renderizar con filtro actual
+            imageData = ctx.getImageData(0, 0, w, h);
+            currentImage = 'custom';
+            render();
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+
+      buildUI();
+      // populate editor with current filter kernel
+      const f0 = filters[currentFilter];
+      populateKernelEditor(f0.kernel || f0.previewKernel || [[0,1,0],[0,0,0],[0,0,0]], f0.normalize || false);
+      render();
+      lucide.createIcons();
+
+      // Edge demo helpers
+      function useCurrentImageForEdge() {
+        const co = document.getElementById('canvas-original');
+        const ce = document.getElementById('edge-original');
+        const ctx = ce.getContext('2d');
+        // copy original canvas content to edge-original
+        ctx.clearRect(0,0,ce.width,ce.height);
+        ctx.drawImage(co, 0, 0, ce.width, ce.height);
+      }
+
+      function runEdgeDemo(name) {
+        const ce = document.getElementById('edge-demo-canvas');
+        const ctx = ce.getContext('2d');
+        const w = 300, h = 300;
+        ce.width = w; ce.height = h;
+        // get source image data (prefer current imageData if custom)
+        let src = imageData;
+        if (!src || currentImage !== 'custom') {
+          src = generateImage(currentImage, w, h);
+        }
+        let out;
+        if (name === 'Canny') {
+          out = applyCanny(src);
+        } else if (name === 'Sobel Horizontal' || name === 'Sobel Vertical') {
+          const f = filters.find(f => f.name === name.replace('Sobel ', 'Sobel ')) || filters.find(f => f.name.includes('Sobel'));
+          out = applyFilter(src, filters.find(ff => ff.name === name) || filters.find(ff => f.name.includes('Sobel')) || filters[0]);
+        } else {
+          out = applyFilter(src, filters.find(f => f.name === name) || filters[0]);
+        }
+        // respect intensity
+        if (filterIntensity < 0.999) {
+          const blended = new Uint8ClampedArray(src.data.length);
+          for (let i = 0; i < src.data.length; i += 4) {
+            blended[i] = Math.round(src.data[i] * (1 - filterIntensity) + out.data[i] * filterIntensity);
+            blended[i+1] = Math.round(src.data[i+1] * (1 - filterIntensity) + out.data[i+1] * filterIntensity);
+            blended[i+2] = Math.round(src.data[i+2] * (1 - filterIntensity) + out.data[i+2] * filterIntensity);
+            blended[i+3] = 255;
+          }
+          ctx.putImageData(new ImageData(blended, w, h), 0, 0);
+        } else {
+          ctx.putImageData(out, 0, 0);
+        }
+      }
+
+      // Sliding-window demo: create UI and animation (3x3 window)
+      (function(){
+        let slideState = { running:false, x:0, y:0, w:300, h:300, idx:0, timer:null, fps:30, result:null };
+
+        function createSlidingDemoUIIfMissing() {
+          if (document.getElementById('slide-original')) return;
+          const container = document.createElement('section');
+          container.className = 'w-full max-w-6xl mx-auto px-6 pb-12';
+          container.innerHTML = `
+            <h2 class="text-2xl font-semibold text-emerald-400 mb-4">Demo Animado: Ventana 3×3</h2>
+            <div class="bg-slate-900 rounded-xl p-6 border border-slate-800">
+              <div class="flex gap-6 flex-wrap items-start">
+                <div class="w-full md:w-1/2 text-center">
+                  <p class="text-slate-400 text-xs mb-2 uppercase tracking-wider">Canvas (Origen)</p>
+                  <canvas id="slide-original" width="300" height="300" class="w-full max-w-[300px] mx-auto bg-slate-800 mb-3"></canvas>
+                </div>
+                <div class="w-full md:w-1/2 text-center">
+                  <p class="text-slate-400 text-xs mb-2 uppercase tracking-wider">Canvas (Resultado)</p>
+                  <canvas id="slide-result" width="300" height="300" class="w-full max-w-[300px] mx-auto bg-slate-800 mb-3"></canvas>
+                </div>
+              </div>
+              <div class="mt-4 flex items-center gap-3 justify-center">
+                <button id="slide-start" class="px-3 py-1 rounded bg-emerald-500 text-slate-900">Iniciar</button>
+                <button id="slide-pause" class="px-3 py-1 rounded bg-slate-700 text-slate-200">Pausa</button>
+                <button id="slide-reset" class="px-3 py-1 rounded bg-slate-600 text-white">Reset</button>
+                <label class="ml-2 text-xs text-slate-400">Velocidad:</label>
+                <input id="slide-speed" type="range" min="1" max="60" value="30" class="h-2 w-40">
+                <span id="slide-speed-val" class="text-sm text-slate-300">30 fps</span>
+                <label class="ml-4 text-xs text-slate-300"><input id="slide-autoplay" type="checkbox" class="mr-1"> Autoplay</label>
+              </div>
+            </div>
+          `;
+          const app = document.getElementById('app');
+          app.appendChild(container);
+
+          document.getElementById('slide-start').addEventListener('click', startSlidingDemo);
+          document.getElementById('slide-pause').addEventListener('click', pauseSlidingDemo);
+          document.getElementById('slide-reset').addEventListener('click', resetSlidingDemo);
+          document.getElementById('slide-speed').addEventListener('input', e => updateSlideSpeed(e.target.value));
+          const autoplayEl = document.getElementById('slide-autoplay');
+          if (autoplayEl) {
+            autoplayEl.addEventListener('change', (ev) => {
+              if (ev.target.checked) startSlidingDemo();
+              else pauseSlidingDemo();
+            });
+            autoplayEl.checked = true;
+          }
+          try { if (autoplayEl && autoplayEl.checked) startSlidingDemo(); } catch(e) { /* ignore */ }
+        }
+
+        function updateSlideSpeed(v) { slideState.fps = Number(v); const el = document.getElementById('slide-speed-val'); if(el) el.textContent = v + ' fps'; }
+
+        function startSlidingDemo() {
+          createSlidingDemoUIIfMissing();
+          if (slideState.running) return;
+          const co = document.getElementById('slide-original');
+          const cr = document.getElementById('slide-result');
+          const ctxO = co.getContext('2d');
+          const ctxR = cr.getContext('2d');
+          const w = slideState.w, h = slideState.h;
+          if (!imageData || currentImage !== 'custom') imageData = generateImage(currentImage, w, h);
+          ctxO.putImageData(imageData, 0, 0);
+          slideState.result = ctxR.createImageData(w, h);
+          for (let i=0;i<slideState.result.data.length;i+=4){ slideState.result.data[i]=slideState.result.data[i+1]=slideState.result.data[i+2]=0; slideState.result.data[i+3]=255; }
+          ctxR.putImageData(slideState.result,0,0);
+          slideState.x = 1; slideState.y = 1; slideState.running = true;
+          slideState.lastTime = performance.now();
+          const loop = (ts) => {
+            if (!slideState.running) return;
+            const elapsed = ts - (slideState.lastTime || ts);
+            const interval = Math.max(1, 1000 / slideState.fps);
+            if (elapsed >= interval) {
+              stepSliding();
+              slideState.lastTime = ts;
+            }
+            slideState.rafId = requestAnimationFrame(loop);
+          };
+          slideState.rafId = requestAnimationFrame(loop);
+        }
+
+        function pauseSlidingDemo() { slideState.running = false; if (slideState.rafId) { cancelAnimationFrame(slideState.rafId); slideState.rafId = null; } }
+
+        function resetSlidingDemo() { pauseSlidingDemo(); const cr = document.getElementById('slide-result'); if(cr){ const ctxR = cr.getContext('2d'); ctxR.clearRect(0,0,cr.width,cr.height); } const co = document.getElementById('slide-original'); if(co){ const ctxO = co.getContext('2d'); ctxO.clearRect(0,0,co.width,co.height); } }
+
+        function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+        function applyKernelAt(img, kernel, normalize, cx, cy){
+          const w = img.width, h = img.height; const src = img.data;
+          const ks = kernel.length; const half = Math.floor(ks/2);
+          let sr=0, sg=0, sb=0, sum=0;
+          for (let ky=0; ky<ks; ky++){
+            for (let kx=0; kx<ks; kx++){
+              const px = clamp(cx + kx - half, 0, w-1);
+              const py = clamp(cy + ky - half, 0, h-1);
+              const si = (py*w + px)*4;
+              const weight = kernel[ky][kx];
+              sr += src[si] * weight; sg += src[si+1] * weight; sb += src[si+2] * weight;
+              sum += weight;
+            }
+          }
+          if (normalize && sum !== 0){ sr /= sum; sg /= sum; sb /= sum; }
+          return [Math.round(clamp(sr,0,255)), Math.round(clamp(sg,0,255)), Math.round(clamp(sb,0,255))];
+        }
+
+        function stepSliding(){
+          const w = slideState.w, h = slideState.h; const co = document.getElementById('slide-original'); const cr = document.getElementById('slide-result');
+          if (!co || !cr) return;
+          const ctxO = co.getContext('2d'); const ctxR = cr.getContext('2d');
+          ctxO.putImageData(imageData, 0, 0);
+          ctxO.save();
+          ctxO.strokeStyle = 'rgba(255,165,0,0.95)'; ctxO.lineWidth = 1;
+          ctxO.strokeRect(slideState.x-1 + 0.5, slideState.y-1 + 0.5, 3, 3);
+          ctxO.restore();
+
+          const f = filters[currentFilter] || filters[0];
+          const kernel = f.kernel || f.previewKernel || (f.kernels ? f.kernels[0] : [[0,1,0],[0,1,0],[0,1,0]]);
+          const normalize = !!f.normalize;
+          const rgb = applyKernelAt(imageData, kernel, normalize, slideState.x, slideState.y);
+          const di = (slideState.y * w + slideState.x) * 4;
+          slideState.result.data[di] = rgb[0]; slideState.result.data[di+1] = rgb[1]; slideState.result.data[di+2] = rgb[2]; slideState.result.data[di+3] = 255;
+          ctxR.putImageData(slideState.result, 0, 0);
+
+          slideState.x++;
+          if (slideState.x >= w-1){ slideState.x = 1; slideState.y++; }
+          if (slideState.y >= h-1){ pauseSlidingDemo(); }
+        }
+
+        window.startSlidingDemo = startSlidingDemo;
+        window.pauseSlidingDemo = pauseSlidingDemo;
+        window.resetSlidingDemo = resetSlidingDemo;
+        window.updateSlideSpeed = updateSlideSpeed;
+      })();
+
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange: async (config) => {
+          const title = document.getElementById('main-title');
+          title.textContent = config.page_title || defaultConfig.page_title;
+          const font = config.font_family || defaultConfig.font_family;
+          document.body.style.fontFamily = `${font}, sans-serif`;
+          const size = config.font_size || defaultConfig.font_size;
+          document.body.style.fontSize = size + 'px';
+          document.body.style.backgroundColor = config.background_color || defaultConfig.background_color;
+          document.body.style.color = config.text_color || defaultConfig.text_color;
+        },
+        mapToCapabilities: (config) => ({
+          recolorables: [
+            { get: () => config.background_color || defaultConfig.background_color, set: v => { config.background_color = v; window.elementSdk.setConfig({background_color:v}); }},
+            { get: () => config.surface_color || defaultConfig.surface_color, set: v => { config.surface_color = v; window.elementSdk.setConfig({surface_color:v}); }},
+            { get: () => config.text_color || defaultConfig.text_color, set: v => { config.text_color = v; window.elementSdk.setConfig({text_color:v}); }},
+            { get: () => config.primary_color || defaultConfig.primary_color, set: v => { config.primary_color = v; window.elementSdk.setConfig({primary_color:v}); }},
+            { get: () => config.secondary_color || defaultConfig.secondary_color, set: v => { config.secondary_color = v; window.elementSdk.setConfig({secondary_color:v}); }},
+          ],
+          borderables: [],
+          fontEditable: { get: () => config.font_family || defaultConfig.font_family, set: v => { config.font_family = v; window.elementSdk.setConfig({font_family:v}); }},
+          fontSizeable: { get: () => config.font_size || defaultConfig.font_size, set: v => { config.font_size = v; window.elementSdk.setConfig({font_size:v}); }}
+        }),
+        mapToEditPanelValues: (config) => new Map([
+          ["page_title", config.page_title || defaultConfig.page_title]
+        ])
+      });
+    </script>
+   <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ff83005440a6dec',t:'MTc3OTQxNDgxMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+  </html>
