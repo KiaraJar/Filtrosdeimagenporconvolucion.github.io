@@ -90,7 +90,7 @@
          <p class="text-slate-500 text-xs mb-2 uppercase tracking-wider">Kernel activo</p>
          <div id="kernel-display" class="inline-grid gap-0 mono text-emerald-300 bg-slate-900 rounded-lg p-2 border border-slate-700"></div>
          <div class="mt-2 flex items-center justify-center gap-3">
-           <button id="kernel-edit-btn" onclick="toggleKernelEdit()" class="px-3 py-1 rounded bg-indigo-600 text-white text-sm">Editar</button>
+           <button id="kernel-edit-btn" onclick="toggleKernelEdit()" class="px-3 py-1 rounded bg-indigo-600 text-white text-sm" style="display: none;">Editar</button>
            <button id="kernel-apply-btn" onclick="applyKernelFromDisplay()" class="px-3 py-1 rounded bg-emerald-500 text-slate-900 text-sm hidden">Aplicar</button>
            <button id="kernel-reset-btn" onclick="resetKernelFromDisplay()" class="px-3 py-1 rounded bg-slate-700 text-slate-200 text-sm hidden">Reset</button>
            <label class="ml-2 text-xs text-slate-400"><input id="kernel-normalize" type="checkbox" class="mr-1"> Normalizar</label>
@@ -123,11 +123,12 @@
         { name: 'Gaussiano', desc: 'Suavizado que da más peso al centro, resultando más natural.', kernel: [[1,2,1],[2,4,2],[1,2,1]], normalize: true, category: 'suavizado' },
         { name: 'Prewitt Horizontal', desc: 'Detecta bordes horizontales con el operador de Prewitt.', kernel: [[-1,0,1],[-1,0,1],[-1,0,1]], category: 'detección' },
         { name: 'Prewitt Vertical', desc: 'Detecta bordes verticales con el operador de Prewitt.', kernel: [[1,1,1],[0,0,0],[-1,-1,-1]], category: 'detección' },
-        { name: 'Prewitt Bidireccional', desc: 'Detecta bordes en ambas direcciones con el operador de Prewitt combinado.', type: 'prewitt', previewKernel: [[-1,0,1],[-1,0,1],[-1,0,1]], category: 'detección' },
+        { name: 'Prewitt Bidireccional', desc: 'Detecta bordes en ambas direcciones con el operador de Prewitt combinado.', type: 'prewitt', category: 'detección' },
         { name: 'Sharpen', desc: 'Realza bordes aumentando el contraste local.', kernel: [[0,-1,0],[-1,5,-1],[0,-1,0]], category: 'realce' },
         { name: 'Bordes (Laplaciano)', desc: 'Detecta cambios bruscos de intensidad en todas direcciones.', kernel: [[0,-1,0],[-1,4,-1],[0,-1,0]], category: 'detección' },
         { name: 'Sobel Horizontal', desc: 'Detecta bordes horizontales usando el gradiente vertical.', kernel: [[-1,0,1],[-2,0,2],[-1,0,1]], category: 'detección' },
         { name: 'Sobel Vertical', desc: 'Detecta bordes verticales usando el gradiente horizontal.', kernel: [[-1,-2,-1],[0,0,0],[1,2,1]], category: 'detección' },
+        { name: 'Sobel Bidireccional', desc: 'Detecta bordes en ambas direcciones usando el operador Sobel combinado.', type: 'sobel', category: 'detección' },
         { name: 'Canny', desc: 'Filtro de detección de bordes inspirado en Canny con suavizado, gradiente y umbrales.', type: 'canny', previewKernel: [[1,2,1],[2,4,2],[1,2,1]], category: 'detección' },
         { name: 'Emboss', desc: 'Crea un efecto de relieve simulando luz desde una esquina.', kernel: [[-2,-1,0],[-1,1,1],[0,1,2]], category: 'efecto' },
         { name: 'Bordes Intenso', desc: 'Detección agresiva de bordes en todas las direcciones.', kernel: [[-1,-1,-1],[-1,8,-1],[-1,-1,-1]], category: 'detección' }
@@ -281,6 +282,36 @@
         return new ImageData(out, w, h);
       }
 
+      function applySobel(imgData) {
+        const w = imgData.width, h = imgData.height;
+        const src = imgData.data;
+        const out = new Uint8ClampedArray(src.length);
+        const kernelX = [[-1,0,1],[-2,0,2],[-1,0,1]];
+        const kernelY = [[-1,-2,-1],[0,0,0],[1,2,1]];
+        const half = 1;
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            let gx = 0, gy = 0;
+            for (let ky = 0; ky < 3; ky++) {
+              for (let kx = 0; kx < 3; kx++) {
+                const py = Math.min(h-1, Math.max(0, y + ky - half));
+                const px = Math.min(w-1, Math.max(0, x + kx - half));
+                const si = (py*w + px) * 4;
+                const lum = 0.299 * src[si] + 0.587 * src[si+1] + 0.114 * src[si+2];
+                gx += lum * kernelX[ky][kx];
+                gy += lum * kernelY[ky][kx];
+              }
+            }
+            const mag = Math.min(255, Math.hypot(gx, gy));
+            const di = (y*w + x) * 4;
+            out[di] = out[di+1] = out[di+2] = mag;
+            out[di+3] = 255;
+          }
+        }
+        return new ImageData(out, w, h);
+      }
+
       function applyCanny(imgData) {
         const w = imgData.width, h = imgData.height;
         const src = imgData.data;
@@ -369,6 +400,7 @@
       }
 
       function applyFilter(imgData, filter) {
+        if (filter && filter.type === 'sobel') return applySobel(imgData);
         if (filter.type === 'prewitt') return applyPrewitt(imgData);
         if (filter.type === 'canny') return applyCanny(imgData);
         // Para que la diferencia entre Box Blur y Gaussiano sea visible,
@@ -410,23 +442,28 @@
 
         // Kernel display
         const kd = document.getElementById('kernel-display');
-        const kernels = f.kernels || [f.kernel || f.previewKernel];
-        const displayKernel = f.displayKernel || kernels[0] || [[0]];
-        kd.style.gridTemplateColumns = `repeat(${displayKernel.length}, 42px)`;
-        if (kernelEdit && displayKernel.length === 3) {
-          // render inputs inside kernel display
-          let html = '';
-          for (let y = 0; y < 3; y++) {
-            for (let x = 0; x < 3; x++) {
-              const v = (displayKernel[y] && typeof displayKernel[y][x] !== 'undefined') ? displayKernel[y][x] : 0;
-              html += `<input id="k-${y}-${x}" class="kernel-cell" style="width:42px;height:42px;padding:0;border:none;background:#0f172a;color:#8be5c1;text-align:center" type="number" step="1" value="${v}">`;
-            }
-          }
-          kd.innerHTML = html;
-          const n = document.getElementById('kernel-normalize');
-          if (n) n.checked = !!f.normalize;
+        if (f.type === 'sobel' || f.type === 'prewitt') {
+          kd.innerHTML = '';
+          kd.style.gridTemplateColumns = 'auto';
         } else {
-          kd.innerHTML = kernels.map(kernel => (f.displayKernel || kernel).flat().map(v => `<div class="kernel-cell">${v}</div>`).join('')).join('<div class="h-2"></div>')
+          const kernels = f.kernels || [f.kernel || f.previewKernel];
+          const displayKernel = f.displayKernel || kernels[0] || [[0]];
+          kd.style.gridTemplateColumns = `repeat(${displayKernel.length}, 42px)`;
+          if (kernelEdit && displayKernel.length === 3) {
+            // render inputs inside kernel display
+            let html = '';
+            for (let y = 0; y < 3; y++) {
+              for (let x = 0; x < 3; x++) {
+                const v = (displayKernel[y] && typeof displayKernel[y][x] !== 'undefined') ? displayKernel[y][x] : 0;
+                html += `<input id="k-${y}-${x}" class="kernel-cell" style="width:42px;height:42px;padding:0;border:none;background:#0f172a;color:#8be5c1;text-align:center" type="number" step="1" value="${v}">`;
+              }
+            }
+            kd.innerHTML = html;
+            const n = document.getElementById('kernel-normalize');
+            if (n) n.checked = !!f.normalize;
+          } else {
+            kd.innerHTML = kernels.map(kernel => (f.displayKernel || kernel).flat().map(v => `<div class="kernel-cell">${v}</div>`).join('')).join('<div class="h-2"></div>')
+          }
         }
       }
 
@@ -479,6 +516,8 @@
       }
 
       function toggleKernelEdit() {
+        const f = filters[currentFilter];
+        if (f.type === 'sobel' || f.type === 'prewitt') return;
         kernelEdit = !kernelEdit;
         const applyBtn = document.getElementById('kernel-apply-btn');
         const resetBtn = document.getElementById('kernel-reset-btn');
@@ -546,6 +585,16 @@
             : 'px-4 py-2 rounded-full text-sm font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
         });
         const f = filters[idx];
+        const editBtn = document.getElementById('kernel-edit-btn');
+        const normalizeInput = document.getElementById('kernel-normalize');
+        const normalizeLabel = normalizeInput && normalizeInput.parentElement ? normalizeInput.parentElement : null;
+        if (f.type === 'sobel' || f.type === 'prewitt') {
+          if (editBtn) editBtn.style.display = 'none';
+          if (normalizeLabel) { normalizeInput.checked = false; normalizeLabel.style.display = 'none'; }
+        } else {
+          if (editBtn) editBtn.style.display = 'block';
+          if (normalizeLabel) { normalizeLabel.style.display = 'inline'; normalizeInput.checked = !!f.normalize; }
+        }
         const kernelForEditor = f.kernel || f.previewKernel || (f.kernels ? f.kernels[0] : [[0,1,0],[0,0,0],[0,0,0]]);
         populateKernelEditor(kernelForEditor, f.normalize || false);
       }
@@ -559,7 +608,26 @@
 
         const cardsContainer = document.getElementById('filter-cards');
         cardsContainer.innerHTML = filters.map((f, i) => {
-          const displayKernel = f.displayKernel || f.previewKernel || f.kernel || (f.kernels ? f.kernels[0] : [[0]]);
+          let kernelDisplay = '';
+          if (f.type === 'sobel' || f.type === 'prewitt') {
+            kernelDisplay = `
+              <div class="text-xs text-slate-300 space-y-2">
+                <div>
+                  <div class="text-emerald-300 font-medium">Magnitud del gradiente</div>
+                  <div class="text-slate-400 mono">|G| = √(G<sub>x</sub><sup>2</sup> + G<sub>y</sub><sup>2</sup>)</div>
+                </div>
+                <div>
+                  <div class="text-emerald-300 font-medium">Dirección del borde</div>
+                  <div class="text-slate-400 mono">θ = arctan(G<sub>y</sub>/G<sub>x</sub>)</div>
+                </div>
+              </div>
+            `;
+          } else {
+            const displayKernel = f.displayKernel || f.previewKernel || f.kernel || (f.kernels ? f.kernels[0] : [[0]]);
+            kernelDisplay = `<div class="inline-grid gap-0 mono text-xs text-emerald-300/80" style="grid-template-columns:repeat(${displayKernel.length},32px)">
+              ${displayKernel.flat().map(v => `<div class="w-8 h-8 flex items-center justify-center border border-slate-700/50">${v}</div>`).join('')}
+            </div>`;
+          }
           return `
           <div class="filter-card fade-up bg-slate-900 border border-slate-800 rounded-xl p-5 cursor-pointer" onclick="setFilter(${i})">
             <div class="flex items-center gap-2 mb-2">
@@ -567,9 +635,7 @@
             </div>
             <h3 class="text-lg font-semibold text-white mb-1">${f.name}</h3>
             <p class="text-slate-400 text-sm mb-3">${f.desc}</p>
-            <div class="inline-grid gap-0 mono text-xs text-emerald-300/80" style="grid-template-columns:repeat(${displayKernel.length},32px)">
-              ${displayKernel.flat().map(v => `<div class="w-8 h-8 flex items-center justify-center border border-slate-700/50">${v}</div>`).join('')}
-            </div>
+            ${kernelDisplay}
           </div>
         `;
         }).join('');
